@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>今天吃什麼？命運轉盤</title>
+<style>
+  :root{
+    --bg:#fff7ed; --card:#ffffff; --text:#3b2a20; --muted:#8a7565; --line:#f0dfd0;
+    --accent:#f97316; --accent-d:#c2570c; --danger:#dc2626; --shadow:0 8px 24px rgba(120,60,10,.12);
+  }
+  :root[data-theme="dark"]{
+    --bg:#1b1410; --card:#2a1f19; --text:#f6e9dd; --muted:#b39c8a; --line:#44342a;
+    --accent:#fb923c; --accent-d:#fdba74; --danger:#f87171; --shadow:0 8px 24px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 6px;max-width:1100px;margin:0 auto}
+  h1{font-size:1.5rem;margin:0}
+  h1 small{display:block;font-size:.85rem;color:var(--muted);font-weight:400;margin-top:2px}
+  main{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;padding:12px 20px 40px;max-width:1100px;margin:0 auto}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+  .card h2{font-size:1.05rem;margin:0 0 12px}
+  .wheel-wrap{position:relative;width:100%;max-width:460px;margin:0 auto;aspect-ratio:1}
+  canvas{width:100%;height:100%;display:block}
+  .pointer{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:0;height:0;
+    border-left:16px solid transparent;border-right:16px solid transparent;border-top:34px solid var(--text);
+    filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));z-index:2}
+  .spin-btn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22%;aspect-ratio:1;border-radius:50%;
+    border:4px solid var(--card);background:var(--accent);color:#fff;font-weight:700;font-size:clamp(.9rem,3.4vw,1.2rem);cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:3;transition:transform .15s,background .2s}
+  .spin-btn:hover:not(:disabled){transform:translate(-50%,-50%) scale(1.07);background:var(--accent-d)}
+  .spin-btn:disabled{opacity:.6;cursor:not-allowed}
+  .result{text-align:center;margin-top:14px;min-height:3.2em}
+  .result .label{color:var(--muted);font-size:.9rem}
+  .result .name{font-size:1.7rem;font-weight:800;color:var(--accent)}
+  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  button,select,input{font:inherit;color:inherit}
+  .chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 14px;cursor:pointer;transition:.15s}
+  .chip:hover{border-color:var(--accent)}
+  .chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .add-row{display:flex;gap:8px;margin-bottom:12px}
+  .add-row input[type=text]{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+  .btn{border:none;background:var(--accent);color:#fff;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600}
+  .btn:hover{background:var(--accent-d)}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--accent);background:transparent}
+  ul{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto}
+  li.item{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px dashed var(--line)}
+  li.item .dot{width:14px;height:14px;border-radius:50%;flex:none}
+  li.item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  li.item .w{display:flex;align-items:center;gap:4px}
+  li.item .w button{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:transparent;cursor:pointer;line-height:1}
+  li.item .w button:hover{border-color:var(--accent)}
+  li.item .w span{min-width:1.4em;text-align:center;font-variant-numeric:tabular-nums}
+  li.item .del{border:none;background:transparent;color:var(--danger);cursor:pointer;font-size:1.1rem}
+  .opts{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0 4px;color:var(--muted);font-size:.92rem}
+  .opts label{display:flex;align-items:center;gap:6px;cursor:pointer}
+  .history{margin-top:16px}
+  .history li{display:flex;justify-content:space-between;padding:5px 2px;font-size:.92rem;border-bottom:1px dashed var(--line)}
+  .history time{color:var(--muted)}
+  .empty{color:var(--muted);font-size:.9rem;padding:6px 0}
+  .stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .stats span{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px 8px;font-size:.85rem}
+  .icon-btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 11px;cursor:pointer}
+  .toolbar{display:flex;gap:8px}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);
+    padding:10px 18px;border-radius:999px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:60}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎡 今天吃什麼？命運轉盤<small>選擇困難症救星：自訂選項、調整機率，一轉就決定</small></h1>
+  <div class="toolbar">
+    <button class="icon-btn" id="soundBtn" title="開關音效" aria-label="開關音效">🔊</button>
+    <button class="icon-btn" id="themeBtn" title="切換深色模式" aria-label="切換深色模式">🌙</button>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="920" height="920" aria-label="轉盤"></canvas>
+      <button class="spin-btn" id="spinBtn">開轉</button>
+    </div>
+    <div class="result" aria-live="polite">
+      <div class="label" id="resLabel">按下中間的按鈕開始</div>
+      <div class="name" id="resName">　</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>📋 選項設定</h2>
+    <div class="tabs" id="presets"></div>
+    <form class="add-row" id="addForm">
+      <input type="text" id="newName" placeholder="新增選項，例如：牛肉麵" maxlength="12" autocomplete="off">
+      <button class="btn" type="submit">新增</button>
+    </form>
+    <ul id="list"></ul>
+    <div class="opts">
+      <label><input type="checkbox" id="removeAfter"> 抽中後從轉盤移除</label>
+      <label><input type="checkbox" id="useWeight" checked> 啟用權重（機率）</label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn ghost" id="shuffleBtn">🔀 打亂順序</button>
+      <button class="btn ghost" id="resetBtn">↺ 重設此分類</button>
+      <button class="btn ghost" id="clearBtn">🗑 清空</button>
+    </div>
+
+    <div class="history">
+      <h2 style="margin-top:18px">🕘 抽籤紀錄</h2>
+      <div class="stats" id="stats"></div>
+      <ul id="history"></ul>
+      <button class="btn ghost" id="clearHist" style="margin-top:8px">清除紀錄</button>
+    </div>
+  </section>
+</main>
+
+<canvas id="confetti"></canvas>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+  const PRESETS = {
+    '🍱 午晚餐': ['牛肉麵','滷肉飯','便當','火鍋','拉麵','咖哩飯','水餃','炒飯'],
+    '🥞 早餐':   ['蛋餅','燒餅油條','漢堡','三明治','飯糰','鍋貼'],
+    '🧋 飲料':   ['珍珠奶茶','四季春','美式咖啡','多多綠','檸檬愛玉','豆漿'],
+    '🎬 玩什麼': ['看電影','逛夜市','打電動','爬山','睡覺','讀書']
+  };
+  const COLORS = ['#f97316','#facc15','#4ade80','#22d3ee','#818cf8','#f472b6','#fb7185','#a3e635','#2dd4bf','#c084fc'];
+  const $ = id => document.getElementById(id);
+  const canvas = $('wheel'), ctx = canvas.getContext('2d');
+  const store = {
+    get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+    set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  };
+
+  // ---- state ----
+  const saved = store.get('wheel-state-v1', {});
+  const state = {
+    preset: saved.preset && PRESETS[saved.preset] ? saved.preset : Object.keys(PRESETS)[0],
+    items: saved.items || null,       // [{name, w}]
+    history: saved.history || [],
+    removeAfter: !!saved.removeAfter,
+    useWeight: saved.useWeight !== false,
+    sound: saved.sound !== false,
+    theme: saved.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  };
+  const mk = names => names.map(n => ({name:n, w:1}));
+  if(!state.items) state.items = mk(PRESETS[state.preset]);
+  let rotation = 0, spinning = false;
+  const save = () => store.set('wheel-state-v1', state);
+
+  // ---- helpers ----
+  const weightOf = it => state.useWeight ? it.w : 1;
+  const total = () => state.items.reduce((s,i) => s + weightOf(i), 0);
+  const colorOf = i => COLORS[i % COLORS.length];
+  function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),1800); }
+
+  // ---- draw wheel ----
+  function draw(){
+    const W = canvas.width, c = W/2, r = c - 14;
+    ctx.clearRect(0,0,W,W);
+    const cs = getComputedStyle(document.documentElement);
+    const textColor = '#3b2a20';
+    ctx.save();
+    ctx.translate(c,c);
+    // outer ring
+    ctx.beginPath(); ctx.arc(0,0,r+10,0,Math.PI*2); ctx.fillStyle = cs.getPropertyValue('--text'); ctx.fill();
+    if(!state.items.length){
+      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fillStyle = cs.getPropertyValue('--card'); ctx.fill();
+      ctx.fillStyle = cs.getPropertyValue('--muted'); ctx.font = '48px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('請先新增選項', 0, 16);
+      ctx.restore(); return;
+    }
+    ctx.rotate(rotation);
+    const T = total(); let a = 0;
+    state.items.forEach((it, i) => {
+      const span = weightOf(it)/T * Math.PI*2;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,r,a,a+span); ctx.closePath();
+      ctx.fillStyle = colorOf(i); ctx.fill();
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.stroke();
+      // label
+      ctx.save();
+      ctx.rotate(a + span/2);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = textColor;
+      const size = Math.max(22, Math.min(46, r*span*0.55, 46));
+      ctx.font = `700 ${size}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+      let label = it.name; const maxW = r*0.66;
+      while(ctx.measureText(label).width > maxW && label.length > 1) label = label.slice(0,-1);
+      if(label !== it.name) label += '…';
+      ctx.fillText(label, r-28, 0);
+      ctx.restore();
+      a += span;
+    });
+    ctx.restore();
+  }
+
+  // ---- winner math: pointer is at canvas angle 3π/2 (top) ----
+  const TAU = Math.PI*2;
+  function sliceAt(angleInWheel){
+    const T = total(); let a = 0;
+    const ang = ((angleInWheel % TAU) + TAU) % TAU;
+    for(let i=0;i<state.items.length;i++){
+      const span = weightOf(state.items[i])/T*TAU;
+      if(ang >= a && ang < a+span) return i;
+      a += span;
+    }
+    return state.items.length-1;
+  }
+  const currentIndex = () => sliceAt(1.5*Math.PI - rotation);
+
+  // ---- audio ----
+  let actx = null;
+  function tick(freq=880, dur=.04, vol=.08){
+    if(!state.sound) return;
+    try{
+      actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.frequency.value = freq; o.type='square';
+      g.gain.value = vol; g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime+dur);
+      o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime+dur);
+    }catch(e){}
+  }
+  function fanfare(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tick(f,.18,.1),i*110)); }
+
+  // ---- spin ----
+  function spin(){
+    if(spinning || !state.items.length) return;
+    if(state.items.length === 1){ finish(0); return; }
+    spinning = true; $('spinBtn').disabled = true;
+    $('resLabel').textContent = '轉轉轉…'; $('resName').textContent = '🎲';
+    // choose winner by weight, then land randomly inside that slice (avoid edges)
+    const T = total(); let r = Math.random()*T, win = 0;
+    for(let i=0;i<state.items.length;i++){ r -= weightOf(state.items[i]); if(r<=0){ win=i; break; } }
+    let start = 0;
+    for(let i=0;i<win;i++) start += weightOf(state.items[i])/T*TAU;
+    const span = weightOf(state.items[win])/T*TAU;
+    const target = start + span*(0.1 + Math.random()*0.8);
+    const finalMod = (((1.5*Math.PI - target) % TAU) + TAU) % TAU;
+    const curMod = ((rotation % TAU) + TAU) % TAU;
+    let delta = finalMod - curMod; if(delta < 0) delta += TAU;
+    delta += TAU * (5 + Math.floor(Math.random()*3));
+    const from = rotation, dur = 4200 + Math.random()*800, t0 = performance.now();
+    let last = currentIndex();
+    (function frame(now){
+      const p = Math.min(1,(now-t0)/dur), e = 1 - Math.pow(1-p,4);
+      rotation = from + delta*e;
+      const idx = currentIndex();
+      if(idx !== last){ tick(700 + 300*(1-p)); last = idx; }
+      draw();
+      if(p < 1) requestAnimationFrame(frame); else finish(win);
+    })(t0);
+  }
+
+  function finish(win){
+    spinning = false; $('spinBtn').disabled = false;
+    const it = state.items[win];
+    $('resLabel').textContent = '🎉 就決定是';
+    $('resName').textContent = it.name;
+    state.history.unshift({name: it.name, t: Date.now()});
+    state.history = state.history.slice(0, 50);
+    fanfare(); confetti();
+    if(state.removeAfter){
+      state.items.splice(win,1);
+      setTimeout(() => { renderAll(); toast(`已移除「${it.name}」`); }, 900);
+    }
+    save(); renderHistory();
+  }
+
+  // ---- confetti ----
+  const cv = $('confetti'), cx = cv.getContext('2d');
+  let parts = [], raf = 0;
+  function confetti(){
+    cv.width = innerWidth; cv.height = innerHeight;
+    for(let i=0;i<140;i++) parts.push({
+      x: cv.width/2 + (Math.random()-.5)*160, y: cv.height*0.45,
+      vx: (Math.random()-.5)*14, vy: -Math.random()*14-4, s: Math.random()*8+4,
+      c: COLORS[Math.floor(Math.random()*COLORS.length)], rot: Math.random()*6, vr: (Math.random()-.5)*.4, life: 1
+    });
+    if(!raf) raf = requestAnimationFrame(stepConfetti);
+  }
+  function stepConfetti(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    parts.forEach(p => { p.vy += .35; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= .008;
+      cx.save(); cx.globalAlpha = Math.max(0,p.life); cx.translate(p.x,p.y); cx.rotate(p.rot);
+      cx.fillStyle = p.c; cx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6); cx.restore(); });
+    parts = parts.filter(p => p.life > 0 && p.y < cv.height+20);
+    raf = parts.length ? requestAnimationFrame(stepConfetti) : (cx.clearRect(0,0,cv.width,cv.height), 0);
+  }
+
+  // ---- UI render ----
+  function renderPresets(){
+    $('presets').innerHTML = '';
+    Object.keys(PRESETS).forEach(k => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (k===state.preset ? ' active':''); b.textContent = k;
+      b.onclick = () => { if(spinning) return; state.preset = k; state.items = mk(PRESETS[k]); renderAll(); save(); };
+      $('presets').appendChild(b);
+    });
+  }
+  function renderList(){
+    const ul = $('list'); ul.innerHTML = '';
+    if(!state.items.length){ ul.innerHTML = '<div class="empty">目前沒有選項，請在上方新增，或點選分類載入範例。</div>'; return; }
+    const T = total();
+    state.items.forEach((it,i) => {
+      const li = document.createElement('li'); li.className = 'item';
+      li.innerHTML = `<span class="dot" style="background:${colorOf(i)}"></span><span class="nm"></span>
+        ${state.useWeight ? `<span class="w"><button aria-label="降低權重">−</button><span>${it.w}</span><button aria-label="提高權重">＋</button></span>` : ''}
+        <span style="color:var(--muted);font-size:.8rem;min-width:3em;text-align:right">${(weightOf(it)/T*100).toFixed(0)}%</span>
+        <button class="del" aria-label="刪除">✕</button>`;
+      li.querySelector('.nm').textContent = it.name;
+      const [minus, plus] = li.querySelectorAll('.w button');
+      if(minus){
+        minus.onclick = () => { if(it.w>1){ it.w--; refresh(); } };
+        plus.onclick  = () => { if(it.w<10){ it.w++; refresh(); } };
+      }
+      li.querySelector('.del').onclick = () => { if(spinning) return; state.items.splice(i,1); refresh(); };
+      ul.appendChild(li);
+    });
+  }
+  function renderHistory(){
+    const ul = $('history'); ul.innerHTML = '';
+    if(!state.history.length){ ul.innerHTML = '<div class="empty">還沒有紀錄，轉一次看看！</div>'; $('stats').innerHTML=''; return; }
+    state.history.slice(0,8).forEach(h => {
+      const d = new Date(h.t), li = document.createElement('li');
+      li.innerHTML = '<span></span><time></time>';
+      li.firstChild.textContent = h.name;
+      li.lastChild.textContent = d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+      ul.appendChild(li);
+    });
+    const cnt = {}; state.history.forEach(h => cnt[h.name] = (cnt[h.name]||0)+1);
+    $('stats').innerHTML = '';
+    Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([n,c]) => {
+      const s = document.createElement('span'); s.textContent = `${n} ×${c}`; $('stats').appendChild(s);
+    });
+  }
+  function refresh(){ renderList(); draw(); save(); }
+  function renderAll(){
+    renderPresets(); renderList(); renderHistory(); draw();
+    $('removeAfter').checked = state.removeAfter; $('useWeight').checked = state.useWeight;
+    $('soundBtn').textContent = state.sound ? '🔊' : '🔇';
+    document.documentElement.dataset.theme = state.theme;
+    $('themeBtn').textContent = state.theme === 'dark' ? '☀️' : '🌙';
+  }
+
+  // ---- events ----
+  $('spinBtn').onclick = spin;
+  $('addForm').onsubmit = e => {
+    e.preventDefault();
+    if(spinning) return;
+    const v = $('newName').value.trim();
+    if(!v) return;
+    if(state.items.length >= 20){ toast('最多 20 個選項'); return; }
+    if(state.items.some(i => i.name === v)){ toast('已經有這個選項囉'); return; }
+    state.items.push({name:v, w:1}); $('newName').value=''; refresh();
+  };
+  $('shuffleBtn').onclick = () => { if(spinning) return;
+    for(let i=state.items.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [state.items[i],state.items[j]]=[state.items[j],state.items[i]]; }
+    refresh(); };
+  $('resetBtn').onclick = () => { if(spinning) return; state.items = mk(PRESETS[state.preset]); refresh(); toast('已重設'); };
+  $('clearBtn').onclick = () => { if(spinning) return; state.items = []; refresh(); };
+  $('clearHist').onclick = () => { state.history = []; renderHistory(); save(); };
+  $('removeAfter').onchange = e => { state.removeAfter = e.target.checked; save(); };
+  $('useWeight').onchange = e => { state.useWeight = e.target.checked; refresh(); };
+  $('soundBtn').onclick = () => { state.sound = !state.sound; $('soundBtn').textContent = state.sound?'🔊':'🔇'; save(); };
+  $('themeBtn').onclick = () => { state.theme = state.theme==='dark'?'light':'dark'; renderAll(); save(); };
+  addEventListener('resize', () => { cv.width = innerWidth; cv.height = innerHeight; });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
